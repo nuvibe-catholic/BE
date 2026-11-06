@@ -21,6 +21,9 @@ public interface UserTribeRepository extends JpaRepository<UserTribe, Long> {
     // 해당 트라이브 챗 입장 여부
     boolean existsByUser_IdAndTribe_Id(Long userId, Long tribeId);
 
+    // 해당 트라이브 챗에 특정 상태로 참여 중인지 여부
+    boolean existsByUser_IdAndTribe_IdAndUserTribeStatus(Long userId, Long tribeId, UserTribeStatus userTribeStatus);
+
     /**
      * Active 트라이브 챗 목록 조회
      * 고정 여부, 마지막 활동 시각, 안 읽은 메시지 여부, 마지막 chatId 순으로 정렬
