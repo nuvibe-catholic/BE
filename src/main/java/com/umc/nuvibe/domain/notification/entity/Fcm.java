@@ -10,7 +10,8 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@Table(name = "fcm")
+@Table(name = "fcm",
+        uniqueConstraints = @UniqueConstraint(name = "uk_fcm_user_token", columnNames = {"user_id", "token"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Fcm extends BaseEntity {
 
