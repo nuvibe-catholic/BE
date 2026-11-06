@@ -1,7 +1,11 @@
 package com.umc.nuvibe.domain.tribe.service.internal;
 
+import com.umc.nuvibe.domain.notification.event.NotificationEvent;
+import com.umc.nuvibe.domain.notification.vo.NotificationType;
+import com.umc.nuvibe.domain.tribe.entity.Tribe;
 import com.umc.nuvibe.domain.tribe.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +21,7 @@ public class TribeCloseProcessor {
     private final ScrapedImageRepository scrapedImageRepository;
     private final UserTribeRepository userTribeRepository;
     private final TribeRepository tribeRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 트라이브 챗 종료 (하드 삭제)
@@ -24,6 +29,13 @@ public class TribeCloseProcessor {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processTribeClose(Long tribeId) {
+
+        // 삭제 전에 종료 알림 대상(전체 참여자)과 태그를 먼저 조회
+        String tag = tribeRepository.findById(tribeId)
+                .map(Tribe::getImageTag)
+                .map(Enum::name)
+                .orElse(null);
+        List<Long> participantIds = userTribeRepository.findUserIdsByTribeId(tribeId);
 
         // FK 참조 순서대로 삭제: 이모지 -> 스크랩 이미지 -> 채팅 -> 유저 트라이브 -> 트라이브
         List<Long> chatIds = chatRepository.findIdsByTribeId(tribeId);
@@ -35,5 +47,14 @@ public class TribeCloseProcessor {
         chatRepository.deleteByTribeId(tribeId);
         userTribeRepository.deleteByTribeId(tribeId);
         tribeRepository.deleteById(tribeId);
+
+        // 커밋 이후 참여자 전원에게 종료 알림 (NOTI-05)
+        eventPublisher.publishEvent(NotificationEvent.of(
+                participantIds,
+                NotificationType.NOTI_05,
+                tag,
+                tribeId,
+                null
+        ));
     }
 }

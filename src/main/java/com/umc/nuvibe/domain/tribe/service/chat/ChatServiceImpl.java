@@ -7,6 +7,8 @@ import com.umc.nuvibe.domain.archive.repository.BoardImageRepository;
 import com.umc.nuvibe.domain.image.entity.Image;
 import com.umc.nuvibe.domain.image.repository.ImageRepository;
 import com.umc.nuvibe.domain.image.vo.ImageStatus;
+import com.umc.nuvibe.domain.notification.event.NotificationEvent;
+import com.umc.nuvibe.domain.notification.vo.NotificationType;
 import com.umc.nuvibe.domain.tribe.dto.internal.ChatSend;
 import com.umc.nuvibe.domain.tribe.dto.internal.EmojiAggRow;
 import com.umc.nuvibe.domain.tribe.dto.internal.MyEmojiRow;
@@ -24,6 +26,7 @@ import com.umc.nuvibe.global.apiPayLoad.error.*;
 import com.umc.nuvibe.global.apiPayLoad.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.MessagingException;
@@ -58,6 +61,7 @@ public class ChatServiceImpl implements ChatService {
     private final BoardImageRepository boardImageRepository;
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -211,6 +215,15 @@ public class ChatServiceImpl implements ChatService {
                 chat.getCreatedAt()
         );
         publishChatAfterCommit(tribeId, chatSend);
+
+        // 8. 커밋 이후 무음이 아닌 다른 참여자에게 새 채팅 알림 (NOTI-02)
+        eventPublisher.publishEvent(NotificationEvent.of(
+                userTribeRepository.findUnmutedUserIdsExcept(tribeId, UserTribeStatus.ACTIVE, userId),
+                NotificationType.NOTI_02,
+                tribe.getImageTag().name(),
+                tribeId,
+                null
+        ));
     }
 
     // 본인 보드인지 확인 후 이미지 저장 (이미지는 하나의 보드에만 저장 가능)
