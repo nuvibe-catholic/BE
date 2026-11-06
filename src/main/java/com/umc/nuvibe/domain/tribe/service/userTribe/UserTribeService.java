@@ -22,4 +22,7 @@ public interface UserTribeService {
 
     // 트라이브 챗 읽음 처리
     TribeReadRes readChat(Long userId, Long tribeId);
+
+    // 트라이브 챗 퇴장
+    LeaveRes leaveTribe(Long userId, Long userTribeId);
 }

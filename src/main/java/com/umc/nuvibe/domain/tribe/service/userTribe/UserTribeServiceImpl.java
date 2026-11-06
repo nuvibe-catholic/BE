@@ -5,8 +5,7 @@ import com.umc.nuvibe.domain.tribe.dto.internal.ActiveTribeRow;
 import com.umc.nuvibe.domain.tribe.dto.request.ActiveTribeListReq;
 import com.umc.nuvibe.domain.tribe.dto.response.userTribe.*;
 import com.umc.nuvibe.domain.tribe.entity.UserTribe;
-import com.umc.nuvibe.domain.tribe.repository.TribeRepository;
-import com.umc.nuvibe.domain.tribe.repository.UserTribeRepository;
+import com.umc.nuvibe.domain.tribe.repository.*;
 import com.umc.nuvibe.domain.tribe.vo.TribeStatus;
 import com.umc.nuvibe.domain.tribe.vo.UserTribeStatus;
 import com.umc.nuvibe.global.apiPayLoad.error.TribeErrorCode;
@@ -30,6 +29,9 @@ public class UserTribeServiceImpl implements UserTribeService {
 
     private final UserTribeRepository userTribeRepository;
     private final TribeRepository tribeRepository;
+    private final ChatRepository chatRepository;
+    private final EmojiRepository emojiRepository;
+    private final ScrapedImageRepository scrapedImageRepository;
 
     @Override
     @Transactional
@@ -168,6 +170,30 @@ public class UserTribeServiceImpl implements UserTribeService {
         userTribeRepository.readChat(userId, tribeId, lastId, UserTribeStatus.ACTIVE);
 
         return new TribeReadRes(tribeId, lastId);
+    }
+
+    @Override
+    @Transactional
+    public LeaveRes leaveTribe(Long userId, Long userTribeId) {
+
+        UserTribe userTribe = getMyUserTribe(userId, userTribeId);
+        Long tribeId = userTribe.getTribe().getId();
+
+        // 1. 해당 트라이브 챗에서 스크랩한 이미지 삭제 (원본 이미지는 유지)
+        scrapedImageRepository.deleteAllByUserIdAndTribeId(userId, tribeId);
+
+        // 2. 내가 남긴 이모지 반응 및 내 채팅에 달린 이모지 반응 삭제
+        emojiRepository.deleteAllByUserIdAndTribeId(userId, tribeId);
+        emojiRepository.deleteAllOnMyChatsByUserIdAndTribeId(userId, tribeId);
+
+        // 3. 내 채팅 삭제
+        chatRepository.deleteAllByUserIdAndTribeId(userId, tribeId);
+
+        // 4. 유저 트라이브 삭제 및 트라이브 인원 수 감소
+        userTribeRepository.delete(userTribe);
+        tribeRepository.decrementCounts(tribeId);
+
+        return new LeaveRes(userTribeId, tribeId);
     }
 
     // 유저 트라이브 조회 및 본인 소유 여부 검증

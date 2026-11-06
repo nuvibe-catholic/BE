@@ -81,4 +81,14 @@ public class UserTribeController {
         TribeReadRes res = userTribeService.readChat(userId, tribeId);
         return Response.of(UserTribeResultCode.USERTRIBE_READ_SUCCESS, res);
     }
+
+    @DeleteMapping("/{userTribeId}")
+    @Operation(summary = "트라이브 챗 퇴장", description = "트라이브 챗 퇴장 시 내 채팅, 이모지 반응, 스크랩 이미지 함께 삭제")
+    public Response<LeaveRes> leaveTribe(
+            @AuthUser Long userId,
+            @PathVariable Long userTribeId
+    ) {
+        LeaveRes res = userTribeService.leaveTribe(userId, userTribeId);
+        return Response.of(UserTribeResultCode.USERTRIBE_LEAVE_SUCCESS, res);
+    }
 }

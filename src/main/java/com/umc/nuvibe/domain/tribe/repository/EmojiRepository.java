@@ -5,6 +5,7 @@ import com.umc.nuvibe.domain.tribe.dto.internal.EmojiCountRow;
 import com.umc.nuvibe.domain.tribe.dto.internal.MyEmojiRow;
 import com.umc.nuvibe.domain.tribe.entity.Emoji;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -61,4 +62,22 @@ public interface EmojiRepository extends JpaRepository<Emoji, Long> {
             @Param("userId") Long userId,
             @Param("chatIds") List<Long> chatIds
     );
+
+    // 트라이브 챗 퇴장 시 해당 트라이브 챗에서 내가 남긴 이모지 반응 삭제
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        delete from Emoji e
+        where e.user.id = :userId
+          and e.chat.tribe.id = :tribeId
+    """)
+    void deleteAllByUserIdAndTribeId(@Param("userId") Long userId, @Param("tribeId") Long tribeId);
+
+    // 트라이브 챗 퇴장 시 내 채팅에 달린 이모지 반응 삭제
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        delete from Emoji e
+        where e.chat.user.id = :userId
+          and e.chat.tribe.id = :tribeId
+    """)
+    void deleteAllOnMyChatsByUserIdAndTribeId(@Param("userId") Long userId, @Param("tribeId") Long tribeId);
 }

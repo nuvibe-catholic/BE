@@ -5,6 +5,7 @@ import com.umc.nuvibe.domain.tribe.dto.response.scrapedImage.ScrapedImageItemRes
 import com.umc.nuvibe.domain.tribe.entity.ScrapedImage;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -84,4 +85,9 @@ public interface ScrapedImageRepository extends JpaRepository<ScrapedImage, Long
             @Param("cursorId") Long cursorId,
             Pageable pageable
     );
+
+    // 트라이브 챗 퇴장 시 해당 트라이브 챗에서 스크랩한 이미지 삭제 (원본 이미지는 유지)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from ScrapedImage si where si.user.id = :userId and si.tribe.id = :tribeId")
+    void deleteAllByUserIdAndTribeId(@Param("userId") Long userId, @Param("tribeId") Long tribeId);
 }
