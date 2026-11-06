@@ -129,6 +129,20 @@ public class ChatServiceImpl implements ChatService {
         return new ChatGridListRes(items, nextCursorCreatedAt, nextCursorChatId, hasNext);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public ChatDetailRes getChatDetail(Long userId, Long chatId) {
+
+        Chat chat = chatRepository.findDetailByChatId(chatId)
+                .orElseThrow(() -> new BusinessException(ChatErrorCode.CHAT_NOT_FOUND));
+
+        validateUserInTribe(userId, chat.getTribe().getId());
+
+        boolean isScraped = scrapedImageRepository.existsByUser_IdAndImage_Id(userId, chat.getImage().getId());
+
+        return ChatDetailRes.from(chat, isScraped);
+    }
+
     // 채팅별 이모지 타입 개수 집계
     private Map<Long, List<EmojiSummaryRes>> buildEmojiSummaryMap(List<Long> chatIds) {
         List<EmojiAggRow> rows = emojiRepository.countByChatIdGroupByType(chatIds);

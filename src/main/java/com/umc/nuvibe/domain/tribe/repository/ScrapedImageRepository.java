@@ -9,6 +9,9 @@ import java.util.List;
 
 public interface ScrapedImageRepository extends JpaRepository<ScrapedImage, Long> {
 
+    // 유저의 이미지 스크랩 여부
+    boolean existsByUser_IdAndImage_Id(Long userId, Long imageId);
+
     // 주어진 이미지 중 해당 트라이브 챗에서 내가 스크랩한 imageId 목록 조회
     @Query("""
         select si.image.id
