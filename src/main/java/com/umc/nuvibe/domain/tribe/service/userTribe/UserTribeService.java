@@ -19,4 +19,7 @@ public interface UserTribeService {
 
     // 대기 중인 트라이브 챗 목록 조회
     WaitingTribeListRes getWaitingTribeList(Long userId, Long cursorTribeId, Integer size);
+
+    // 트라이브 챗 읽음 처리
+    TribeReadRes readChat(Long userId, Long tribeId);
 }

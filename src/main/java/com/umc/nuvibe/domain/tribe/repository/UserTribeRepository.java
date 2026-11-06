@@ -125,4 +125,22 @@ public interface UserTribeRepository extends JpaRepository<UserTribe, Long> {
             @Param("activeStatus") UserTribeStatus activeStatus,
             @Param("senderUserId") Long senderUserId
     );
+
+    // 트라이브 챗 읽음 처리 (마지막 읽은 chatId 갱신 및 안 읽은 메시지 수 초기화)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        update UserTribe ut
+           set ut.lastReadChatId = :lastChatId,
+               ut.unreadCount = 0
+         where ut.user.id = :userId
+           and ut.tribe.id = :tribeId
+           and ut.userTribeStatus = :status
+           and (ut.lastReadChatId is null or ut.lastReadChatId < :lastChatId)
+    """)
+    int readChat(
+            @Param("userId") Long userId,
+            @Param("tribeId") Long tribeId,
+            @Param("lastChatId") Long lastChatId,
+            @Param("status") UserTribeStatus status
+    );
 }

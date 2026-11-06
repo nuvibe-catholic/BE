@@ -5,6 +5,7 @@ import com.umc.nuvibe.domain.tribe.dto.internal.ActiveTribeRow;
 import com.umc.nuvibe.domain.tribe.dto.request.ActiveTribeListReq;
 import com.umc.nuvibe.domain.tribe.dto.response.userTribe.*;
 import com.umc.nuvibe.domain.tribe.entity.UserTribe;
+import com.umc.nuvibe.domain.tribe.repository.TribeRepository;
 import com.umc.nuvibe.domain.tribe.repository.UserTribeRepository;
 import com.umc.nuvibe.domain.tribe.vo.TribeStatus;
 import com.umc.nuvibe.domain.tribe.vo.UserTribeStatus;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,7 @@ public class UserTribeServiceImpl implements UserTribeService {
     private static final int DEFAULT_WAITING_PAGE_SIZE = 20;
 
     private final UserTribeRepository userTribeRepository;
+    private final TribeRepository tribeRepository;
 
     @Override
     @Transactional
@@ -140,6 +143,31 @@ public class UserTribeServiceImpl implements UserTribeService {
         Long nextCursor = hasNext ? content.get(content.size() - 1).tribeId() : null;
 
         return new WaitingTribeListRes(content, hasNext, nextCursor);
+    }
+
+    @Override
+    @Transactional
+    public TribeReadRes readChat(Long userId, Long tribeId) {
+
+        // 1. ACTIVE 참여자만 읽음 처리 가능
+        boolean isActiveMember = userTribeRepository.existsByUser_IdAndTribe_IdAndUserTribeStatus(
+                userId, tribeId, UserTribeStatus.ACTIVE
+        );
+        if (!isActiveMember) {
+            throw new BusinessException(UserTribeErrorCode.USERTRIBE_FORBIDDEN);
+        }
+
+        // 2. 트라이브 챗의 최신 chatId 조회, 채팅이 없으면 그대로 성공 반환
+        Optional<Long> lastChatId = tribeRepository.findLastChatId(tribeId);
+        if (lastChatId.isEmpty()) {
+            return new TribeReadRes(tribeId, null);
+        }
+
+        // 3. 최신 chatId까지 읽음 처리 및 안 읽은 메시지 수 초기화
+        Long lastId = lastChatId.get();
+        userTribeRepository.readChat(userId, tribeId, lastId, UserTribeStatus.ACTIVE);
+
+        return new TribeReadRes(tribeId, lastId);
     }
 
     // 유저 트라이브 조회 및 본인 소유 여부 검증

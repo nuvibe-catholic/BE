@@ -71,4 +71,14 @@ public class UserTribeController {
         WaitingTribeListRes res = userTribeService.getWaitingTribeList(userId, cursorTribeId, size);
         return Response.of(UserTribeResultCode.GET_USERTRIBE_SUCCESS, res);
     }
+
+    @PatchMapping("/tribe/{tribeId}/read")
+    @Operation(summary = "트라이브 챗 읽음 처리", description = "안 읽은 메시지 수를 0개로 초기화")
+    public Response<TribeReadRes> readChat(
+            @AuthUser Long userId,
+            @PathVariable Long tribeId
+    ) {
+        TribeReadRes res = userTribeService.readChat(userId, tribeId);
+        return Response.of(UserTribeResultCode.USERTRIBE_READ_SUCCESS, res);
+    }
 }
