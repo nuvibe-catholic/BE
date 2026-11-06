@@ -11,6 +11,7 @@ import com.umc.nuvibe.domain.notification.vo.NotificationType;
 import com.umc.nuvibe.domain.user.entity.User;
 import com.umc.nuvibe.domain.user.repository.UserRepository;
 import com.umc.nuvibe.domain.user.vo.UserSetting;
+import com.umc.nuvibe.global.config.AsyncConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,7 +35,7 @@ public class FcmAsyncService {
     @Value("${firebase.enabled:false}")
     private boolean firebaseEnabled;
 
-    @Async
+    @Async(AsyncConfig.NOTIFICATION_EXECUTOR)
     public void sendNotification(Long userId, NotificationType type, String tag, Long relatedId, Long tribeId) {
 
         // 1. 수신자 조회 및 알림 설정 확인 (탈퇴했거나 해당 알림을 끈 유저는 스킵)
