@@ -1,24 +1,37 @@
 package com.umc.nuvibe.domain.tribe.service.chat;
 
+import com.umc.nuvibe.domain.archive.entity.ArchiveBoard;
+import com.umc.nuvibe.domain.archive.entity.BoardImage;
+import com.umc.nuvibe.domain.archive.repository.ArchiveBoardRepository;
+import com.umc.nuvibe.domain.archive.repository.BoardImageRepository;
+import com.umc.nuvibe.domain.image.entity.Image;
+import com.umc.nuvibe.domain.image.repository.ImageRepository;
+import com.umc.nuvibe.domain.image.vo.ImageStatus;
+import com.umc.nuvibe.domain.tribe.dto.internal.ChatSend;
 import com.umc.nuvibe.domain.tribe.dto.internal.EmojiAggRow;
 import com.umc.nuvibe.domain.tribe.dto.internal.MyEmojiRow;
 import com.umc.nuvibe.domain.tribe.dto.request.ChatGridReq;
 import com.umc.nuvibe.domain.tribe.dto.request.ChatTimelineReq;
 import com.umc.nuvibe.domain.tribe.dto.response.chat.*;
 import com.umc.nuvibe.domain.tribe.entity.Chat;
-import com.umc.nuvibe.domain.tribe.repository.ChatRepository;
-import com.umc.nuvibe.domain.tribe.repository.EmojiRepository;
-import com.umc.nuvibe.domain.tribe.repository.ScrapedImageRepository;
-import com.umc.nuvibe.domain.tribe.repository.UserTribeRepository;
+import com.umc.nuvibe.domain.tribe.entity.Tribe;
+import com.umc.nuvibe.domain.tribe.repository.*;
 import com.umc.nuvibe.domain.tribe.vo.EmojiType;
-import com.umc.nuvibe.global.apiPayLoad.error.ChatErrorCode;
-import com.umc.nuvibe.global.apiPayLoad.error.UserTribeErrorCode;
+import com.umc.nuvibe.domain.tribe.vo.UserTribeStatus;
+import com.umc.nuvibe.domain.user.entity.User;
+import com.umc.nuvibe.domain.user.repository.UserRepository;
+import com.umc.nuvibe.global.apiPayLoad.error.*;
 import com.umc.nuvibe.global.apiPayLoad.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -27,14 +40,24 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
+    private static final String TRIBE_TOPIC_PREFIX = "/topic/tribe.";
+
     private final ChatRepository chatRepository;
     private final EmojiRepository emojiRepository;
+    private final TribeRepository tribeRepository;
     private final UserTribeRepository userTribeRepository;
     private final ScrapedImageRepository scrapedImageRepository;
+    private final UserRepository userRepository;
+    private final ImageRepository imageRepository;
+    private final ArchiveBoardRepository archiveBoardRepository;
+    private final BoardImageRepository boardImageRepository;
+
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional(readOnly = true)
@@ -141,6 +164,82 @@ public class ChatServiceImpl implements ChatService {
         boolean isScraped = scrapedImageRepository.existsByUser_IdAndImage_Id(userId, chat.getImage().getId());
 
         return ChatDetailRes.from(chat, isScraped);
+    }
+
+    @Override
+    @Transactional
+    public void sendChat(Long userId, Long tribeId, Long imageId, Long boardId) {
+
+        // 1. 트라이브 존재 및 발신 권한(ACTIVE 참여자) 검증
+        Tribe tribe = tribeRepository.findById(tribeId)
+                .orElseThrow(() -> new BusinessException(TribeErrorCode.TRIBE_NOT_FOUND));
+
+        boolean canSend = userTribeRepository.existsByUser_IdAndTribe_IdAndUserTribeStatus(
+                userId, tribeId, UserTribeStatus.ACTIVE
+        );
+        if (!canSend) {
+            throw new BusinessException(UserTribeErrorCode.USERTRIBE_FORBIDDEN);
+        }
+
+        // 2. 업로드가 완료된 이미지인지 검증
+        Image image = imageRepository.findById(imageId)
+                .orElseThrow(() -> new BusinessException(ImageErrorCode.IMAGE_NOT_FOUND));
+        if (image.getStatus() != ImageStatus.ACTIVE) {
+            throw new BusinessException(ImageErrorCode.IMAGE_UPLOAD_NOT_COMPLETED);
+        }
+
+        // 3. 선택한 보드에 이미지 저장
+        saveImageToBoard(userId, boardId, image);
+
+        // 4. 채팅 저장 (유저는 참조로 조회)
+        User userRef = userRepository.getReferenceById(userId);
+        Chat chat = chatRepository.saveAndFlush(Chat.of(userRef, tribe, image));
+
+        // 5. 트라이브 마지막 채팅 및 참여자 활동 시각 갱신
+        tribe.updateLastChat(chat.getId());
+        userTribeRepository.updateLastActivityAt(tribeId, UserTribeStatus.ACTIVE, chat.getCreatedAt());
+
+        // 6. 발신자를 제외한 ACTIVE 참여자의 안 읽은 메시지 수 증가
+        userTribeRepository.incrementUnreadCountForActiveMembers(tribeId, UserTribeStatus.ACTIVE, userId);
+
+        // 7. 커밋 이후 트라이브 채널로 채팅 발행
+        ChatSend chatSend = new ChatSend(
+                chat.getId(),
+                userId,
+                image.getId(),
+                image.getThumbnailUrl(),
+                chat.getCreatedAt()
+        );
+        publishChatAfterCommit(tribeId, chatSend);
+    }
+
+    // 본인 보드인지 확인 후 이미지 저장 (이미지는 하나의 보드에만 저장 가능)
+    private void saveImageToBoard(Long userId, Long boardId, Image image) {
+        ArchiveBoard board = archiveBoardRepository.findByIdAndUserId(boardId, userId)
+                .orElseThrow(() -> new BusinessException(ArchiveErrorCode.BOARD_NOT_FOUND));
+
+        if (boardImageRepository.existsByImageId(image.getId())) {
+            throw new BusinessException(ArchiveErrorCode.BOARD_IMAGE_ALREADY_EXISTS);
+        }
+
+        boardImageRepository.save(BoardImage.builder()
+                .board(board)
+                .image(image)
+                .build());
+    }
+
+    // 트랜잭션 커밋 이후 트라이브 채널로 채팅 발행
+    private void publishChatAfterCommit(Long tribeId, ChatSend chatSend) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    messagingTemplate.convertAndSend(TRIBE_TOPIC_PREFIX + tribeId, chatSend);
+                } catch (MessagingException e) {
+                    log.error("웹소켓 채팅 발행 실패. chatId={}, tribeId={}", chatSend.chatId(), tribeId, e);
+                }
+            }
+        });
     }
 
     // 채팅별 이모지 타입 개수 집계

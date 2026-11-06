@@ -7,6 +7,7 @@ import com.umc.nuvibe.domain.tribe.entity.UserTribe;
 import com.umc.nuvibe.domain.tribe.vo.UserTribeStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -94,5 +95,34 @@ public interface UserTribeRepository extends JpaRepository<UserTribe, Long> {
             @Param("hasCursor") boolean hasCursor,
             @Param("cTribeId") Long cTribeId,
             Pageable pageable
+    );
+
+    // 채팅 발신 시 트라이브 챗 참여자들의 마지막 활동 시각 갱신
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        update UserTribe ut
+           set ut.lastActivityAt = :activityAt
+         where ut.tribe.id = :tribeId
+           and ut.userTribeStatus = :status
+    """)
+    int updateLastActivityAt(
+            @Param("tribeId") Long tribeId,
+            @Param("status") UserTribeStatus status,
+            @Param("activityAt") LocalDateTime activityAt
+    );
+
+    // 채팅 발신 시 발신자를 제외한 ACTIVE 참여자의 안 읽은 메시지 수 1 증가
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        update UserTribe ut
+           set ut.unreadCount = ut.unreadCount + 1
+         where ut.tribe.id = :tribeId
+           and ut.userTribeStatus = :activeStatus
+           and ut.user.id <> :senderUserId
+    """)
+    int incrementUnreadCountForActiveMembers(
+            @Param("tribeId") Long tribeId,
+            @Param("activeStatus") UserTribeStatus activeStatus,
+            @Param("senderUserId") Long senderUserId
     );
 }

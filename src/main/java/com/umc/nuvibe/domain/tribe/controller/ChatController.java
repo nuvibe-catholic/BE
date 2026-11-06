@@ -59,4 +59,16 @@ public class ChatController {
         ChatDetailRes res = chatService.getChatDetail(userId, chatId);
         return Response.of(ChatResultCode.CHAT_DETAIL_SUCCESS, res);
     }
+
+    @PostMapping("/tribe/{tribeId}/send")
+    @Operation(summary = "채팅 발신", description = "업로드한 이미지를 선택한 보드에 저장한 뒤 트라이브 챗에 발신")
+    public Response<Void> sendChat(
+            @AuthUser Long userId,
+            @PathVariable Long tribeId,
+            @RequestParam Long imageId,
+            @RequestParam Long boardId
+    ) {
+        chatService.sendChat(userId, tribeId, imageId, boardId);
+        return Response.of(ChatResultCode.CHAT_SEND_SUCCESS);
+    }
 }

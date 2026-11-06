@@ -19,4 +19,10 @@ public interface ChatService {
 
     // 채팅 이미지 상세 조회
     ChatDetailRes getChatDetail(Long userId, Long chatId);
+
+    /**
+     * 채팅 발신
+     * 업로드 완료된 이미지를 선택한 보드에 저장한 뒤 트라이브 챗으로 발신
+     */
+    void sendChat(Long userId, Long tribeId, Long imageId, Long boardId);
 }

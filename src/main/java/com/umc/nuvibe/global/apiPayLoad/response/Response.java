@@ -39,6 +39,11 @@ public class Response <T> {
         return new Response<>(code.getHttpStatus(), code.getCode(), code.getMessage(), data);
     }
 
+    // 응답 데이터가 없는 경우
+    public static Response<Void> of(ResultCode code) {
+        return new Response<>(code.getHttpStatus(), code.getCode(), code.getMessage(), null);
+    }
+
     public static <T>Response<T> of(ErrorCode code, T data ) {
         return new Response<>(code.getHttpStatus(), code.getCode(), code.getMessage(), data);
     }
