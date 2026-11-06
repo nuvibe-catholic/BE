@@ -1,6 +1,7 @@
 package com.umc.nuvibe.domain.tribe.repository;
 
 import com.umc.nuvibe.domain.tribe.dto.internal.EmojiAggRow;
+import com.umc.nuvibe.domain.tribe.dto.internal.EmojiCountRow;
 import com.umc.nuvibe.domain.tribe.dto.internal.MyEmojiRow;
 import com.umc.nuvibe.domain.tribe.entity.Emoji;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,8 +9,24 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface EmojiRepository extends JpaRepository<Emoji, Long> {
+
+    // 채팅에 내가 누른 이모지 조회
+    Optional<Emoji> findByChat_IdAndUser_Id(Long chatId, Long userId);
+
+    // 단일 채팅의 이모지 타입별 집계
+    @Query("""
+        select new com.umc.nuvibe.domain.tribe.dto.internal.EmojiCountRow(
+            e.type,
+            count(e.id)
+        )
+        from Emoji e
+        where e.chat.id = :chatId
+        group by e.type
+    """)
+    List<EmojiCountRow> countGroupByType(@Param("chatId") Long chatId);
 
     /**
      * 각 채팅에 대한 이모지 타입별 집계
