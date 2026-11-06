@@ -1,8 +1,7 @@
 package com.umc.nuvibe.domain.tribe.service.userTribe;
 
-import com.umc.nuvibe.domain.tribe.dto.response.userTribe.UserTribeActivateRes;
-import com.umc.nuvibe.domain.tribe.dto.response.userTribe.UserTribeFavoriteRes;
-import com.umc.nuvibe.domain.tribe.dto.response.userTribe.UserTribeMuteRes;
+import com.umc.nuvibe.domain.tribe.dto.request.ActiveTribeListReq;
+import com.umc.nuvibe.domain.tribe.dto.response.userTribe.*;
 
 public interface UserTribeService {
 
@@ -14,4 +13,10 @@ public interface UserTribeService {
 
     // 트라이브 챗 무음 토글
     UserTribeMuteRes toggleMute(Long userId, Long userTribeId);
+
+    // 활성화된 트라이브 챗 목록 조회
+    ActiveTribeListRes getActiveTribeList(Long userId, ActiveTribeListReq req);
+
+    // 대기 중인 트라이브 챗 목록 조회
+    WaitingTribeListRes getWaitingTribeList(Long userId, Long cursorTribeId, Integer size);
 }
