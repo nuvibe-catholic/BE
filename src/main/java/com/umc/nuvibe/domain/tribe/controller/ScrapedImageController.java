@@ -1,5 +1,7 @@
 package com.umc.nuvibe.domain.tribe.controller;
 
+import com.umc.nuvibe.domain.tribe.dto.request.ScrapedImageSliceReq;
+import com.umc.nuvibe.domain.tribe.dto.response.scrapedImage.ScrapedImageListRes;
 import com.umc.nuvibe.domain.tribe.dto.response.scrapedImage.ScrapedImageToggleRes;
 import com.umc.nuvibe.domain.tribe.service.scrapedImage.ScrapedImageService;
 import com.umc.nuvibe.global.apiPayLoad.response.Response;
@@ -7,7 +9,9 @@ import com.umc.nuvibe.global.apiPayLoad.result.ScrapedImageResultCode;
 import com.umc.nuvibe.global.security.annotation.AuthUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -32,5 +36,26 @@ public class ScrapedImageController {
                 : ScrapedImageResultCode.SCRAPEDIMAGE_DELETED;
 
         return Response.of(resultCode, res);
+    }
+
+    @GetMapping
+    @Operation(summary = "스크랩 이미지 전체 목록 조회", description = "최신순 전체 조회 또는 태그별 조회 (무한 스크롤)")
+    public Response<ScrapedImageListRes> getTotalScrapedImage(
+            @AuthUser Long userId,
+            @ParameterObject @Valid ScrapedImageSliceReq req
+    ) {
+        ScrapedImageListRes res = scrapedImageService.getTotalScrapedImage(userId, req);
+        return Response.of(ScrapedImageResultCode.SCRAPEDIMAGE_TOTAL_LIST_SUCCESS, res);
+    }
+
+    @GetMapping("/tribe/{tribeId}")
+    @Operation(summary = "해당 트라이브 챗 내 스크랩 이미지 목록 조회", description = "최신순 조회 (무한 스크롤)")
+    public Response<ScrapedImageListRes> getTribeScrapedImage(
+            @AuthUser Long userId,
+            @PathVariable Long tribeId,
+            @ParameterObject @Valid ScrapedImageSliceReq req
+    ) {
+        ScrapedImageListRes res = scrapedImageService.getTribeScrapedImage(userId, tribeId, req);
+        return Response.of(ScrapedImageResultCode.SCRAPEDIMAGE_TRIBE_LIST_SUCCESS, res);
     }
 }
