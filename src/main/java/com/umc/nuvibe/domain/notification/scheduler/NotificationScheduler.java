@@ -46,7 +46,8 @@ public class NotificationScheduler {
     // 생성 후 6일이 지났고 활성 인원이 5명 미만인 트라이브 참여자 대상
     @Scheduled(cron = "0 0 0/12 * * *", zone = "Asia/Seoul")
     public void sendTribeCloseWarning() {
-        LocalDateTime now = LocalDateTime.now(clock);
+        // 같은 시각 cron 인 종료 배치 뒤에 실행되어 지연돼도 조회 구간이 밀리지 않도록 12시간 슬롯 경계로 내림
+        LocalDateTime now = truncateToBatchSlot(LocalDateTime.now(clock));
         LocalDateTime cutoff = now.minusHours(WARNING_HOURS);
         LocalDateTime excludeCutoff = cutoff.minusHours(WARNING_BATCH_INTERVAL_HOURS);
 
@@ -128,6 +129,11 @@ public class NotificationScheduler {
                 userId -> fcmService.sendNotification(userId, NotificationType.NOTI_09, null, null, null),
                 NotificationType.NOTI_09
         );
+    }
+
+    private static LocalDateTime truncateToBatchSlot(LocalDateTime time) {
+        int slotHour = (int) (time.getHour() / WARNING_BATCH_INTERVAL_HOURS * WARNING_BATCH_INTERVAL_HOURS);
+        return time.toLocalDate().atTime(slotHour, 0);
     }
 
     // 유저 단위 발송, 한 명이 실패해도 나머지는 계속 발송
