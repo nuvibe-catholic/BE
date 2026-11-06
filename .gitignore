@@ -41,3 +41,6 @@ out/
 Thumbs.db
 *.log
 logs/
+
+### Firebase ###
+src/main/resources/firebase/

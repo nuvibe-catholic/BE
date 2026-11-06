@@ -2,3 +2,7 @@ spring:
   profiles:
     active: dev
 
+# FCM 푸시 발송은 기본 비활성화, 키 파일이 준비된 환경에서만 켠다
+firebase:
+  enabled: ${FIREBASE_ENABLED:false}
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:}

@@ -47,6 +47,9 @@ dependencies {
 	//websocket
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
+	// firebase (FCM 푸시 알림)
+	implementation 'com.google.firebase:firebase-admin:9.7.0'
+
 	// db
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	testRuntimeOnly 'com.h2database:h2'
