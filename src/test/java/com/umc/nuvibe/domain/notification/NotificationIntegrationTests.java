@@ -14,6 +14,7 @@ import com.umc.nuvibe.domain.notification.repository.FcmRepository;
 import com.umc.nuvibe.domain.notification.repository.NotificationRepository;
 import com.umc.nuvibe.domain.notification.vo.NotificationType;
 import com.umc.nuvibe.domain.tribe.dto.request.TribeJoinReq;
+import com.umc.nuvibe.domain.tribe.service.internal.TribeCloseProcessor;
 import com.umc.nuvibe.domain.tribe.service.tribe.TribeService;
 import com.umc.nuvibe.domain.user.entity.User;
 import com.umc.nuvibe.domain.user.repository.UserRepository;
@@ -51,6 +52,7 @@ class NotificationIntegrationTests {
     @Autowired ArchiveBoardRepository archiveBoardRepository;
     @Autowired BoardImageRepository boardImageRepository;
     @Autowired TribeService tribeService;
+    @Autowired TribeCloseProcessor tribeCloseProcessor;
 
     @Test
     void 같은_기기_토큰을_다른_계정이_등록하면_기존_계정_토큰은_비활성화된다() throws Exception {
@@ -130,6 +132,31 @@ class NotificationIntegrationTests {
         assertThat(notificationRepository.findByUserIdOrderByCreatedAtDesc(members.get(5).getId())).isEmpty();
         // 6번째 입장으로 기존 대기자에게 중복 발송되지 않는다
         assertThat(notificationRepository.findByUserIdOrderByCreatedAtDesc(members.get(0).getId())).hasSize(1);
+    }
+
+    @Test
+    void 탈퇴한_참여자가_있어도_오픈_알림과_종료_처리가_실패하지_않는다() throws Exception {
+        ImageTag tag = ImageTag.values()[ImageTag.values().length - 2];
+        List<User> members = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            User user = saveUser();
+            members.add(user);
+            tribeService.joinOrCreateTribe(user.getId(), new TribeJoinReq(tag));
+        }
+        // 첫 참여자 탈퇴 -> user_tribe.user_id 가 null 로 남는다
+        userRepository.deleteById(members.get(0).getId());
+
+        User fifth = saveUser();
+        Long tribeId = tribeService.joinOrCreateTribe(fifth.getId(), new TribeJoinReq(tag)).tribeId();
+
+        for (User waiter : members.subList(1, 4)) {
+            assertThat(awaitNotifications(waiter, 1)).hasSize(1);
+        }
+
+        tribeCloseProcessor.processTribeClose(tribeId);
+        assertThat(awaitNotifications(fifth, 1))
+                .extracting(Notification::getType)
+                .containsExactly(NotificationType.NOTI_05);
     }
 
     @Test

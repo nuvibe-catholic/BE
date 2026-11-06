@@ -153,21 +153,23 @@ public interface UserTribeRepository extends JpaRepository<UserTribe, Long> {
     boolean existsByUser_IdAndTribe_IdAndIsMutedTrue(Long userId, Long tribeId);
 
     // 알림 대상: 트라이브 챗 참여자 ID (상태별)
-    @Query("select ut.user.id from UserTribe ut where ut.tribe.id = :tribeId and ut.userTribeStatus = :status")
+    // 탈퇴로 user_id 가 null 인 행은 inner join 으로 제외
+    @Query("select u.id from UserTribe ut join ut.user u where ut.tribe.id = :tribeId and ut.userTribeStatus = :status")
     List<Long> findUserIdsByTribeIdAndStatus(@Param("tribeId") Long tribeId, @Param("status") UserTribeStatus status);
 
     // 알림 대상: 트라이브 챗 전체 참여자 ID (ACTIVE + WAITING)
-    @Query("select ut.user.id from UserTribe ut where ut.tribe.id = :tribeId")
+    @Query("select u.id from UserTribe ut join ut.user u where ut.tribe.id = :tribeId")
     List<Long> findUserIdsByTribeId(@Param("tribeId") Long tribeId);
 
     // 알림 대상: 무음이 아닌 ACTIVE 참여자 ID (발신자 제외)
     @Query("""
-        select ut.user.id
+        select u.id
           from UserTribe ut
+          join ut.user u
          where ut.tribe.id = :tribeId
            and ut.userTribeStatus = :status
            and ut.isMuted = false
-           and ut.user.id <> :excludeUserId
+           and u.id <> :excludeUserId
     """)
     List<Long> findUnmutedUserIdsExcept(
             @Param("tribeId") Long tribeId,
