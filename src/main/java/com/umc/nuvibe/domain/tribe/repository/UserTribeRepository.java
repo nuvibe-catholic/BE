@@ -148,4 +148,30 @@ public interface UserTribeRepository extends JpaRepository<UserTribe, Long> {
             @Param("lastChatId") Long lastChatId,
             @Param("status") UserTribeStatus status
     );
+
+    // 무음 설정 여부 (이모지 반응 알림 대상 판단)
+    boolean existsByUser_IdAndTribe_IdAndIsMutedTrue(Long userId, Long tribeId);
+
+    // 알림 대상: 트라이브 챗 참여자 ID (상태별)
+    @Query("select ut.user.id from UserTribe ut where ut.tribe.id = :tribeId and ut.userTribeStatus = :status")
+    List<Long> findUserIdsByTribeIdAndStatus(@Param("tribeId") Long tribeId, @Param("status") UserTribeStatus status);
+
+    // 알림 대상: 트라이브 챗 전체 참여자 ID (ACTIVE + WAITING)
+    @Query("select ut.user.id from UserTribe ut where ut.tribe.id = :tribeId")
+    List<Long> findUserIdsByTribeId(@Param("tribeId") Long tribeId);
+
+    // 알림 대상: 무음이 아닌 ACTIVE 참여자 ID (발신자 제외)
+    @Query("""
+        select ut.user.id
+          from UserTribe ut
+         where ut.tribe.id = :tribeId
+           and ut.userTribeStatus = :status
+           and ut.isMuted = false
+           and ut.user.id <> :excludeUserId
+    """)
+    List<Long> findUnmutedUserIdsExcept(
+            @Param("tribeId") Long tribeId,
+            @Param("status") UserTribeStatus status,
+            @Param("excludeUserId") Long excludeUserId
+    );
 }
