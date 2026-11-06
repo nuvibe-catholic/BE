@@ -126,6 +126,11 @@ public interface UserTribeRepository extends JpaRepository<UserTribe, Long> {
             @Param("senderUserId") Long senderUserId
     );
 
+    // 트라이브 챗 종료 시 참여 정보 일괄 삭제
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from UserTribe ut where ut.tribe.id = :tribeId")
+    int deleteByTribeId(@Param("tribeId") Long tribeId);
+
     // 트라이브 챗 읽음 처리 (마지막 읽은 chatId 갱신 및 안 읽은 메시지 수 초기화)
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

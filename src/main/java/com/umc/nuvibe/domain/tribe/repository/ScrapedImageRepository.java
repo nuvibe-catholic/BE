@@ -86,6 +86,11 @@ public interface ScrapedImageRepository extends JpaRepository<ScrapedImage, Long
             Pageable pageable
     );
 
+    // 트라이브 챗 종료 시 해당 트라이브 챗의 스크랩 이미지 일괄 삭제
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from ScrapedImage si where si.tribe.id = :tribeId")
+    void deleteByTribeId(@Param("tribeId") Long tribeId);
+
     // 트라이브 챗 퇴장 시 해당 트라이브 챗에서 스크랩한 이미지 삭제 (원본 이미지는 유지)
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from ScrapedImage si where si.user.id = :userId and si.tribe.id = :tribeId")

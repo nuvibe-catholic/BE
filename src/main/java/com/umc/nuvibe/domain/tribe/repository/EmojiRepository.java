@@ -63,6 +63,11 @@ public interface EmojiRepository extends JpaRepository<Emoji, Long> {
             @Param("chatIds") List<Long> chatIds
     );
 
+    // 트라이브 챗 종료 시 채팅에 달린 이모지 일괄 삭제
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from Emoji e where e.chat.id in :chatIds")
+    void deleteByChatIds(@Param("chatIds") List<Long> chatIds);
+
     // 트라이브 챗 퇴장 시 해당 트라이브 챗에서 내가 남긴 이모지 반응 삭제
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
