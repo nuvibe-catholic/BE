@@ -1,7 +1,10 @@
 package com.umc.nuvibe.domain.tribe.service.emoji;
 
+import com.umc.nuvibe.domain.notification.event.NotificationEvent;
+import com.umc.nuvibe.domain.notification.vo.NotificationType;
 import com.umc.nuvibe.domain.tribe.dto.internal.EmojiChanged;
 import com.umc.nuvibe.domain.tribe.dto.internal.EmojiCountRow;
+import com.umc.nuvibe.domain.tribe.entity.Chat;
 import com.umc.nuvibe.domain.tribe.entity.Emoji;
 import com.umc.nuvibe.domain.tribe.repository.ChatRepository;
 import com.umc.nuvibe.domain.tribe.repository.EmojiRepository;
@@ -14,6 +17,7 @@ import com.umc.nuvibe.global.apiPayLoad.error.UserTribeErrorCode;
 import com.umc.nuvibe.global.apiPayLoad.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -45,6 +49,7 @@ public class EmojiServiceImpl implements EmojiService {
     private final UserRepository userRepository;
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     @Override
@@ -90,6 +95,33 @@ public class EmojiServiceImpl implements EmojiService {
 
         // 3. 커밋 이후 트라이브 채널로 이모지 집계 발행
         publishEmojiAfterCommit(tribeId, chatId, userId, action, actorEmojiType);
+
+        // 4. 반응이 등록/변경된 경우 이미지 작성자에게 알림 (NOTI-03)
+        if (!ACTION_DELETED.equals(action)) {
+            publishReactionNotification(userId, chatId, tribeId);
+        }
+    }
+
+    // 본인 반응이거나 작성자가 해당 트라이브를 무음 설정했으면 알림 생략
+    private void publishReactionNotification(Long reactorId, Long chatId, Long tribeId) {
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new BusinessException(ChatErrorCode.CHAT_NOT_FOUND));
+        if (chat.getUser() == null) {
+            return;
+        }
+
+        Long ownerId = chat.getUser().getId();
+        if (ownerId.equals(reactorId) || userTribeRepository.existsByUser_IdAndTribe_IdAndIsMutedTrue(ownerId, tribeId)) {
+            return;
+        }
+
+        eventPublisher.publishEvent(NotificationEvent.of(
+                ownerId,
+                NotificationType.NOTI_03,
+                chat.getTribe().getImageTag().name(),
+                chatId,
+                tribeId
+        ));
     }
 
     // 트랜잭션 커밋 이후 변경된 이모지 집계를 트라이브 채널로 발행

@@ -62,6 +62,7 @@ public class User extends BaseEntity {
                 .email(email)
                 .password(password)
                 .provider(AuthProvider.LOCAL)
+                .setting(UserSetting.createDefault())
                 .build();
     }
 
@@ -71,6 +72,7 @@ public class User extends BaseEntity {
                 .provider(provider)
                 .email(email)
                 .providerId(providerId)
+                .setting(UserSetting.createDefault())
                 .build();
     }
 

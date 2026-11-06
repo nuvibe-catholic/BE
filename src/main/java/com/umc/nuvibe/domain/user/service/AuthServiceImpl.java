@@ -1,5 +1,6 @@
 package com.umc.nuvibe.domain.user.service;
 
+import com.umc.nuvibe.domain.notification.service.FcmTokenService;
 import com.umc.nuvibe.domain.user.dto.request.AuthRequest;
 import com.umc.nuvibe.domain.user.dto.response.TokenRes;
 import com.umc.nuvibe.domain.user.entity.User;
@@ -21,11 +22,13 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final FcmTokenService fcmTokenService;
 
-    public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider) {
+    public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider, FcmTokenService fcmTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.fcmTokenService = fcmTokenService;
     }
 
     @Override
@@ -77,6 +80,9 @@ public class AuthServiceImpl implements AuthService {
 
         user.updateRefreshToken(null);
         userRepository.save(user);
+
+        // 로그아웃한 기기로 푸시가 가지 않도록 토큰 비활성화
+        fcmTokenService.deactivateAllTokens(userId);
     }
 
     @Override
